@@ -8,7 +8,7 @@
     <style>
         body {
             text-align: center;
-            font-family: Arial;
+            font-family: Arial, sans-serif;
         }
 
         canvas {
@@ -23,6 +23,7 @@
     <h1>Snake 게임</h1>
     <p>점수: <span id="score">0</span></p>
     <p>조작: 방향키 ↑ ↓ ← →</p>
+    <p>빨강: +1점 | 핑크: 가속 | 검정: 감속</p>
 
     <canvas id="gameCanvas" width="400" height="400"></canvas>
 
@@ -31,6 +32,7 @@
         const ctx = canvas.getContext("2d");
 
         const scoreText = document.getElementById("score");
+
         let score = 0;
 
         const gridSize = 20;
@@ -40,6 +42,8 @@
 
         let food = { x: 5, y: 5 };
         let badFood = { x: 15, y: 15 };
+        let pinkFood = { x: 3, y: 15 };
+        let blackFood = { x: 17, y: 3 };
 
         let badFoodVisible = true;
 
@@ -50,28 +54,21 @@
 
         let gameOver = false;
 
-        // 파란색 장애물: 3초 후 사라지고 2초 후 다시 나타남
-        function startBadFoodTimer() {
-            setTimeout(() => {
-                if (gameOver) return;
+        // 게임 속도 (숫자가 작을수록 빠름)
+        let gameSpeed = 300;
+        let gameInterval;
 
-                badFoodVisible = false;
+        // 빨간 사과 타이머
+        let foodTimer = null;
 
-                setTimeout(() => {
-                    if (gameOver) return;
-
-                    moveBadFood();
-                    badFoodVisible = true;
-
-                    startBadFoodTimer();
-                }, 2000);
-
-            }, 3000);
-        }
-
+        // 게임 시작
+        startGameLoop();
         startBadFoodTimer();
 
-        document.addEventListener("keydown", changeDirection);
+        function startGameLoop() {
+            clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, gameSpeed);
+        }
 
         function changeDirection(event) {
             if (event.key === "ArrowUp" && dy !== 1) {
@@ -95,6 +92,9 @@
             }
         }
 
+        document.addEventListener("keydown", changeDirection);
+
+        // 뱀 이동
         function moveSnake() {
             dx = nextDx;
             dy = nextDy;
@@ -104,9 +104,7 @@
                 y: snake[0].y + dy
             };
 
-            snake.unshift(head);
-
-            // 파란색 장애물이 보일 때 닿으면 게임 오버
+            // 파란 장애물에 닿으면 게임 오버
             if (
                 badFoodVisible &&
                 head.x === badFood.x &&
@@ -116,42 +114,126 @@
                 return;
             }
 
-            // 빨간 사과를 먹으면 1점 증가
+            snake.unshift(head);
+
+            // 빨간 사과: 1점 획득
             if (head.x === food.x && head.y === food.y) {
                 score += 1;
                 scoreText.textContent = score;
+
                 moveFood();
-            } else {
+                updateFoodTimer();
+            }
+
+            // 핑크 사과: 가속
+            else if (
+                head.x === pinkFood.x &&
+                head.y === pinkFood.y
+            ) {
+                gameSpeed = Math.max(80, gameSpeed - 50);
+                moveSpecialFood(pinkFood);
+                startGameLoop();
+            }
+
+            // 검은 사과: 감속
+            else if (
+                head.x === blackFood.x &&
+                head.y === blackFood.y
+            ) {
+                gameSpeed = Math.min(800, gameSpeed + 50);
+                moveSpecialFood(blackFood);
+                startGameLoop();
+            }
+
+            else {
                 snake.pop();
             }
 
             checkCollision();
         }
 
+        // 사과가 뱀이나 다른 사과와 겹치지 않도록 위치 지정
+        function randomPosition(excludedFoods = []) {
+            let position;
+
+            do {
+                position = {
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount)
+                };
+            } while (
+                snake.some(part =>
+                    part.x === position.x &&
+                    part.y === position.y
+                ) ||
+                excludedFoods.some(item =>
+                    item.x === position.x &&
+                    item.y === position.y
+                )
+            );
+
+            return position;
+        }
+
+        // 빨간 사과 이동
         function moveFood() {
-            do {
-                food.x = Math.floor(Math.random() * tileCount);
-                food.y = Math.floor(Math.random() * tileCount);
-            } while (
-                snake.some(part =>
-                    part.x === food.x && part.y === food.y
-                ) ||
-                (food.x === badFood.x && food.y === badFood.y)
-            );
+            food = randomPosition([
+                badFood, pinkFood, blackFood
+            ]);
         }
 
-        function moveBadFood() {
-            do {
-                badFood.x = Math.floor(Math.random() * tileCount);
-                badFood.y = Math.floor(Math.random() * tileCount);
-            } while (
-                snake.some(part =>
-                    part.x === badFood.x && part.y === badFood.y
-                ) ||
-                (badFood.x === food.x && badFood.y === food.y)
-            );
+        // 핑크 및 검은 사과 이동
+        function moveSpecialFood(item) {
+            item.x = -1;
+            item.y = -1;
+
+            const position = randomPosition([
+                food, badFood, pinkFood, blackFood
+            ]);
+
+            item.x = position.x;
+            item.y = position.y;
         }
 
+        // 파란 장애물: 3초 표시, 2초 숨김
+        function startBadFoodTimer() {
+            setTimeout(() => {
+                if (gameOver) return;
+
+                badFoodVisible = false;
+
+                setTimeout(() => {
+                    if (gameOver) return;
+
+                    badFood = randomPosition([
+                        food, pinkFood, blackFood
+                    ]);
+
+                    badFoodVisible = true;
+                    startBadFoodTimer();
+                }, 2000);
+
+            }, 3000);
+        }
+
+        // 점수가 10점을 초과하면 빨간 사과에 10초 제한
+        function updateFoodTimer() {
+            if (foodTimer !== null) {
+                clearTimeout(foodTimer);
+                foodTimer = null;
+            }
+
+            if (score > 10) {
+                foodTimer = setTimeout(() => {
+                    if (gameOver) return;
+
+                    moveFood();
+                    updateFoodTimer();
+                }, 10000);
+            }
+        }
+
+        // 충돌 검사
         function checkCollision() {
             const head = snake[0];
 
@@ -176,15 +258,16 @@
             }
         }
 
+        // 게임 오버
         function endGame() {
             gameOver = true;
 
+            clearInterval(gameInterval);
+            clearTimeout(foodTimer);
+
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             ctx.fillRect(
-                0,
-                0,
-                canvas.width,
-                canvas.height
+                0, 0, canvas.width, canvas.height
             );
 
             ctx.font = "32px Arial";
@@ -197,20 +280,20 @@
                 canvas.height / 2 - 20
             );
 
+            ctx.font = "24px Arial";
+
             ctx.fillText(
-                "점수 : " + score,
+                "점수: " + score,
                 canvas.width / 2,
-                canvas.height / 2 + 30
+                canvas.height / 2 + 25
             );
         }
 
+        // 뱀 그리기
         function drawSnake() {
             snake.forEach((part, index) => {
-                if (index === 0) {
-                    ctx.fillStyle = "green";
-                } else {
-                    ctx.fillStyle = "lightgreen";
-                }
+                ctx.fillStyle =
+                    index === 0 ? "green" : "lightgreen";
 
                 ctx.fillRect(
                     part.x * gridSize,
@@ -221,6 +304,7 @@
             });
         }
 
+        // 사과 및 장애물 그리기
         function drawFood() {
             // 빨간 사과
             ctx.fillStyle = "red";
@@ -231,7 +315,7 @@
                 gridSize - 2
             );
 
-            // 파란색 장애물은 보일 때만 그림
+            // 파란 장애물
             if (badFoodVisible) {
                 ctx.fillStyle = "blue";
                 ctx.fillRect(
@@ -241,16 +325,32 @@
                     gridSize - 2
                 );
             }
+
+            // 핑크 사과
+            ctx.fillStyle = "hotpink";
+            ctx.fillRect(
+                pinkFood.x * gridSize,
+                pinkFood.y * gridSize,
+                gridSize - 2,
+                gridSize - 2
+            );
+
+            // 검은 사과
+            ctx.fillStyle = "black";
+            ctx.fillRect(
+                blackFood.x * gridSize,
+                blackFood.y * gridSize,
+                gridSize - 2,
+                gridSize - 2
+            );
         }
 
+        // 게임 루프
         function gameLoop() {
             if (gameOver) return;
 
             ctx.clearRect(
-                0,
-                0,
-                canvas.width,
-                canvas.height
+                0, 0, canvas.width, canvas.height
             );
 
             moveSnake();
@@ -261,7 +361,6 @@
             drawFood();
         }
 
-        setInterval(gameLoop, 300);
     </script>
 
 </body>
