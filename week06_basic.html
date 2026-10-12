@@ -37,7 +37,11 @@
         const tileCount = canvas.width / gridSize;
 
         let snake = [{ x: 10, y: 10 }];
+
         let food = { x: 5, y: 5 };
+        let badFood = { x: 15, y: 15 };
+
+        let badFoodVisible = true;
 
         let dx = 1;
         let dy = 0;
@@ -45,6 +49,27 @@
         let nextDy = 0;
 
         let gameOver = false;
+
+        // 파란색 장애물: 3초 후 사라지고 2초 후 다시 나타남
+        function startBadFoodTimer() {
+            setTimeout(() => {
+                if (gameOver) return;
+
+                badFoodVisible = false;
+
+                setTimeout(() => {
+                    if (gameOver) return;
+
+                    moveBadFood();
+                    badFoodVisible = true;
+
+                    startBadFoodTimer();
+                }, 2000);
+
+            }, 3000);
+        }
+
+        startBadFoodTimer();
 
         document.addEventListener("keydown", changeDirection);
 
@@ -81,6 +106,17 @@
 
             snake.unshift(head);
 
+            // 파란색 장애물이 보일 때 닿으면 게임 오버
+            if (
+                badFoodVisible &&
+                head.x === badFood.x &&
+                head.y === badFood.y
+            ) {
+                endGame();
+                return;
+            }
+
+            // 빨간 사과를 먹으면 1점 증가
             if (head.x === food.x && head.y === food.y) {
                 score += 1;
                 scoreText.textContent = score;
@@ -99,7 +135,20 @@
             } while (
                 snake.some(part =>
                     part.x === food.x && part.y === food.y
-                )
+                ) ||
+                (food.x === badFood.x && food.y === badFood.y)
+            );
+        }
+
+        function moveBadFood() {
+            do {
+                badFood.x = Math.floor(Math.random() * tileCount);
+                badFood.y = Math.floor(Math.random() * tileCount);
+            } while (
+                snake.some(part =>
+                    part.x === badFood.x && part.y === badFood.y
+                ) ||
+                (badFood.x === food.x && badFood.y === food.y)
             );
         }
 
@@ -131,7 +180,12 @@
             gameOver = true;
 
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
 
             ctx.font = "32px Arial";
             ctx.fillStyle = "white";
@@ -168,20 +222,36 @@
         }
 
         function drawFood() {
+            // 빨간 사과
             ctx.fillStyle = "red";
-
             ctx.fillRect(
                 food.x * gridSize,
                 food.y * gridSize,
                 gridSize - 2,
                 gridSize - 2
             );
+
+            // 파란색 장애물은 보일 때만 그림
+            if (badFoodVisible) {
+                ctx.fillStyle = "blue";
+                ctx.fillRect(
+                    badFood.x * gridSize,
+                    badFood.y * gridSize,
+                    gridSize - 2,
+                    gridSize - 2
+                );
+            }
         }
 
         function gameLoop() {
             if (gameOver) return;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
 
             moveSnake();
 
@@ -191,7 +261,7 @@
             drawFood();
         }
 
-        setInterval(gameLoop, 500);
+        setInterval(gameLoop, 300);
     </script>
 
 </body>
