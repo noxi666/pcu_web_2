@@ -93,8 +93,14 @@
         }
 
         function moveFood() {
-            food.x = Math.floor(Math.random() * tileCount);
-            food.y = Math.floor(Math.random() * tileCount);
+            do {
+                food.x = Math.floor(Math.random() * tileCount);
+                food.y = Math.floor(Math.random() * tileCount);
+            } while (
+                snake.some(part =>
+                    part.x === food.x && part.y === food.y
+                )
+            );
         }
 
         function checkCollision() {
@@ -145,8 +151,12 @@
         }
 
         function drawSnake() {
-            snake.forEach(part => {
-                ctx.fillStyle = "green";
+            snake.forEach((part, index) => {
+                if (index === 0) {
+                    ctx.fillStyle = "green";
+                } else {
+                    ctx.fillStyle = "lightgreen";
+                }
 
                 ctx.fillRect(
                     part.x * gridSize,
